@@ -1,12 +1,22 @@
 ;;; ============================================================
-;;; SectionDraft.lsp  V89 (自適應邊界狙擊雷達版)
-;;; 核心進化：實裝「動態邊界追蹤雷達」。
-;;; 1. 解決長開口漏牆問題：當切到門窗時，動態讀取其 Y 軸極限邊界 (Y_min, Y_max)。
-;;; 2. 精準狙擊：直接在開口上下邊緣 ±5cm 處生成動態射線，無論開口多長皆可完美捕捉連接牆體。
-;;; 3. 擴大選擇框 (ssget) 至 ±1500cm，確保遠距牆線完整載入記憶體。
-;;; 指令: SECDRAFT
+;;; SectionDraft.lsp  V90 (國際開源雙語版 / International Edition)
+;;; 核心進化：實裝「自動語系偵測引擎 (Auto-L10N Engine)」。
+;;; 1. 偵測系統變數 SYSCODEPAGE，自動切換繁體中文或英文介面。
+;;; 2. 完美解決外國使用者載入 AutoLISP 時遇到亂碼 (Mojibake) 的痛點。
+;;; 3. 保留 V89 的自適應雷達、極限框鎖定與屋突封頂等所有神級演算法。
+;;; 指令/Command: SECDRAFT
 ;;; ============================================================
 (vl-load-com)
+
+;; --- 語系偵測引擎 (Auto-L10N Engine) ---
+(setq *sd-sys-lang* "EN")
+(if (wcmatch (strcase (getvar "SYSCODEPAGE")) "*950*,*936*,*932*,*949*")
+  (setq *sd-sys-lang* "ZH") ; 偵測到中日韓語系編碼，切換為中文
+)
+;; 雙語輸出函數：(sd:t "中文內容" "English Content")
+(defun sd:t (txt-zh txt-en)
+  (if (= *sd-sys-lang* "ZH") txt-zh txt-en)
+)
 
 ;; --- 全域記憶體初始化 ---
 (if (null *sd-wall-layers*) (setq *sd-wall-layers* nil))
@@ -25,11 +35,11 @@
 (defun sd:error (msg)
   (if doc (vl-catch-all-apply 'vla-EndUndoMark (list doc)))
   (if (and msg (not (wcmatch (strcase msg t) "*BREAK*,*CANCEL*,*EXIT*")))
-    (princ (strcat "\n錯誤: " msg))
+    (princ (strcat (sd:t "\n錯誤: " "\nError: ") msg))
   )
   (if old-clayer (vl-catch-all-apply 'setvar (list "CLAYER" old-clayer)))
   (if old-err (setq *error* old-err))
-  (princ "\n[指令已安全中斷]")
+  (princ (sd:t "\n[指令已安全中斷]" "\n[Command safely terminated]"))
   (princ)
 )
 
@@ -204,71 +214,71 @@
   (setq acadObj (vlax-get-acad-object) doc (vla-get-ActiveDocument acadObj))
   (setq old-err *error* *error* sd:error old-clayer (getvar "CLAYER"))
 
-  (princ "\n=== SectionDraft V89 (自適應邊界狙擊雷達版) ===")
+  (princ (sd:t "\n=== SectionDraft V90 (國際開源雙語版) ===" "\n=== SectionDraft V90 (International Edition) ==="))
 
   (setq draft-layer "A-WALL-SECT" slab-layer "A-FLOR-SECT" opening-layer "A-OPEN" floor-layer "A-FLOR-LEVL" plaster-layer "A-WALL-FINI" dim-layer "A-DIM")   
   (sd:ensure-layer draft-layer 4) (sd:ensure-layer slab-layer 4) (sd:ensure-layer opening-layer 2) (sd:ensure-layer floor-layer 8) (sd:ensure-layer plaster-layer 8) (sd:ensure-layer dim-layer 7)
 
   (setq keep-going T)
   (while keep-going
-    (setq ins-pt (getpoint "\n[1] 請點選地板起點 (1F高度): "))
-    (if ins-pt (setq base-y (cadr ins-pt) keep-going nil) (princ "\n⚠️ [警告] 必須點選起點！"))
+    (setq ins-pt (getpoint (sd:t "\n[1] 請點選地板起點 (1F高度): " "\n[1] Select base point for 1F level: ")))
+    (if ins-pt (setq base-y (cadr ins-pt) keep-going nil) (princ (sd:t "\n⚠️ [警告] 必須點選起點！" "\n⚠️ [Warning] Base point is required!")))
   )
 
   (setq lay-wall-list nil keep-going T)
   (while keep-going
-    (if *sd-wall-layers* (princ (strcat "\n[2] 實心牆樣本 [記憶: " (sd:join-layers *sd-wall-layers*) "] (Enter沿用): "))
-      (princ "\n[2] 請框選「實心牆」樣本 (必選): ")
+    (if *sd-wall-layers* (princ (strcat (sd:t "\n[2] 實心牆樣本 [記憶: " "\n[2] Solid Wall samples [Memory: ") (sd:join-layers *sd-wall-layers*) (sd:t "] (Enter沿用): " "] (Enter to use): ")))
+      (princ (sd:t "\n[2] 請框選「實心牆」樣本 (必選): " "\n[2] Box-select 'Solid Wall' samples (Required): "))
     )
     (setq wall-ss-pick (vl-catch-all-apply 'ssget))
     (cond
       ((and (not (vl-catch-all-error-p wall-ss-pick)) wall-ss-pick)
        (setq *sd-wall-layers* (sd:extract-layer-list wall-ss-pick) lay-wall-list *sd-wall-layers* keep-going nil))
-      (*sd-wall-layers* (setq lay-wall-list *sd-wall-layers* keep-going nil) (princ " -> [套用記憶]"))
-      (T (princ "\n⚠️ 尚未選取牆圖層！"))
+      (*sd-wall-layers* (setq lay-wall-list *sd-wall-layers* keep-going nil) (princ (sd:t " -> [套用記憶]" " -> [Applied Memory]")))
+      (T (princ (sd:t "\n⚠️ 尚未選取牆圖層！" "\n⚠️ No wall layer selected!")))
     )
   )
 
   (setq lay-balc-list nil keep-going T)
   (while keep-going
-    (if *sd-balc-layers* (princ (strcat "\n[3] 陽台/女兒牆樣本 [記憶: " (sd:join-layers *sd-balc-layers*) "] (Enter沿用): "))
-      (princ "\n[3] 請框選「陽台/女兒牆」樣本 (Enter跳過): ")
+    (if *sd-balc-layers* (princ (strcat (sd:t "\n[3] 陽台/女兒牆樣本 [記憶: " "\n[3] Parapet/Balcony samples [Memory: ") (sd:join-layers *sd-balc-layers*) (sd:t "] (Enter沿用): " "] (Enter to use): ")))
+      (princ (sd:t "\n[3] 請框選「陽台/女兒牆」樣本 (Enter跳過): " "\n[3] Box-select 'Parapet/Balcony' samples (Enter to skip): "))
     )
     (setq balc-ss-pick (vl-catch-all-apply 'ssget))
     (cond
       ((and (not (vl-catch-all-error-p balc-ss-pick)) balc-ss-pick)
        (setq *sd-balc-layers* (sd:extract-layer-list balc-ss-pick) lay-balc-list *sd-balc-layers* keep-going nil))
-      (*sd-balc-layers* (setq lay-balc-list *sd-balc-layers* keep-going nil) (princ " -> [套用記憶]"))
-      (T (setq lay-balc-list '() keep-going nil) (princ " -> [跳過]"))
+      (*sd-balc-layers* (setq lay-balc-list *sd-balc-layers* keep-going nil) (princ (sd:t " -> [套用記憶]" " -> [Applied Memory]")))
+      (T (setq lay-balc-list '() keep-going nil) (princ (sd:t " -> [跳過]" " -> [Skipped]")))
     )
   )
 
   (setq lay-door-list nil keep-going T)
   (while keep-going
-    (if *sd-door-layers* (princ (strcat "\n[4] 門窗/開口樣本 [記憶: " (sd:join-layers *sd-door-layers*) "] (Enter沿用): "))
-      (princ "\n[4] 請框選「門窗/開口」樣本 (Enter跳過): ")
+    (if *sd-door-layers* (princ (strcat (sd:t "\n[4] 門窗/開口樣本 [記憶: " "\n[4] Door/Window samples [Memory: ") (sd:join-layers *sd-door-layers*) (sd:t "] (Enter沿用): " "] (Enter to use): ")))
+      (princ (sd:t "\n[4] 請框選「門窗/開口」樣本 (Enter跳過): " "\n[4] Box-select 'Door/Window' samples (Enter to skip): "))
     )
     (setq door-ss-pick (vl-catch-all-apply 'ssget))
     (cond
       ((and (not (vl-catch-all-error-p door-ss-pick)) door-ss-pick)
        (setq *sd-door-layers* (sd:extract-layer-list door-ss-pick) lay-door-list *sd-door-layers* keep-going nil))
-      (*sd-door-layers* (setq lay-door-list *sd-door-layers* keep-going nil) (princ " -> [套用記憶]"))
-      (T (setq lay-door-list '() keep-going nil) (princ " -> [跳過]"))
+      (*sd-door-layers* (setq lay-door-list *sd-door-layers* keep-going nil) (princ (sd:t " -> [套用記憶]" " -> [Applied Memory]")))
+      (T (setq lay-door-list '() keep-going nil) (princ (sd:t " -> [跳過]" " -> [Skipped]")))
     )
   )
 
   (setq sec-ss nil keep-going T)
   (while keep-going
-    (princ "\n[5] 請框選所有平面圖的剖切紅線 (必選): ")
+    (princ (sd:t "\n[5] 請框選所有平面圖的剖切紅線 (必選): " "\n[5] Box-select ALL red cut lines across floor plans (Required): "))
     (setq sec-ss (vl-catch-all-apply 'ssget '(((0 . "LINE")))))
     (if (and (not (vl-catch-all-error-p sec-ss)) sec-ss)
-      (setq keep-going nil) (princ "\n⚠️ 尚未選取紅線！")
+      (setq keep-going nil) (princ (sd:t "\n⚠️ 尚未選取紅線！" "\n⚠️ No cut lines selected!"))
     )
   )
   (setq h-count (sslength sec-ss))
   
   (initget "L B T")
-  (setq temp-dir (getkword (strcat "\n -> 共 " (itoa h-count) " 樓層。排序方向 [由左至右(L)/由下至上(B)/由上至下(T)] <" *sd-sort-dir* ">: ")))
+  (setq temp-dir (getkword (strcat (sd:t "\n -> 共 " "\n -> ") (itoa h-count) (sd:t " 樓層。排序方向 [由左至右(L)/由下至上(B)/由上至下(T)] <" " floors. Sort direction [Left-to-Right(L)/Bottom-to-Top(B)/Top-to-Bottom(T)] <") *sd-sort-dir* ">: ")))
   (if temp-dir (setq *sd-sort-dir* temp-dir))
   (setq sort-dir *sd-sort-dir*)
 
@@ -279,7 +289,7 @@
   (setq rel-heights '() i 1)
   (while (< i h-count)
     (setq def-h (if (>= (length *sd-rel-heights*) i) (nth (1- i) *sd-rel-heights*) 320.0))
-    (setq h-val (getreal (strcat "\n -> 第 " (itoa i) " 層高度 <" (rtos def-h 2 1) ">: ")))
+    (setq h-val (getreal (strcat (sd:t "\n -> 第 " "\n -> Level ") (itoa i) (sd:t " 層高度 <" " Height <") (rtos def-h 2 1) ">: ")))
     (if (null h-val) (setq h-val def-h))
     (setq rel-heights (append rel-heights (list h-val)))
     (setq i (1+ i))
@@ -288,16 +298,16 @@
   (setq heights '(0.0) acc 0.0)
   (foreach h rel-heights (setq acc (+ acc h)) (setq heights (append heights (list acc))))
 
-  (setq temp (getreal (strcat "\n[8] 樓板厚度 <" (rtos *sd-slab-thk* 2 1) ">: "))) (if temp (setq *sd-slab-thk* temp)) (setq slab-thick *sd-slab-thk*)
-  (setq temp (getreal (strcat "\n[9] 女兒牆厚度 <" (rtos *sd-para-t* 2 1) ">: "))) (if temp (setq *sd-para-t* temp)) (setq parapet-t *sd-para-t*)
-  (setq temp (getreal (strcat "\n[10] 女兒牆高度 <" (rtos *sd-para-h* 2 1) ">: "))) (if temp (setq *sd-para-h* temp)) (setq parapet-h *sd-para-h*)
-  (setq temp (getstring (strcat "\n[11] 自動粉刷線？(Y/N) <" *sd-draw-plas* ">: "))) (if (and (/= temp "") (/= temp nil)) (setq *sd-draw-plas* (strcase temp)))
+  (setq temp (getreal (strcat (sd:t "\n[8] 樓板厚度 <" "\n[8] Slab Thickness <") (rtos *sd-slab-thk* 2 1) ">: "))) (if temp (setq *sd-slab-thk* temp)) (setq slab-thick *sd-slab-thk*)
+  (setq temp (getreal (strcat (sd:t "\n[9] 女兒牆厚度 <" "\n[9] Parapet Thickness <") (rtos *sd-para-t* 2 1) ">: "))) (if temp (setq *sd-para-t* temp)) (setq parapet-t *sd-para-t*)
+  (setq temp (getreal (strcat (sd:t "\n[10] 女兒牆高度 <" "\n[10] Parapet Height <") (rtos *sd-para-h* 2 1) ">: "))) (if temp (setq *sd-para-h* temp)) (setq parapet-h *sd-para-h*)
+  (setq temp (getstring (strcat (sd:t "\n[11] 自動粉刷線？(Y/N) <" "\n[11] Auto Plaster Lines? (Y/N) <") *sd-draw-plas* ">: "))) (if (and (/= temp "") (/= temp nil)) (setq *sd-draw-plas* (strcase temp)))
   (setq draw-plaster (if (or (= *sd-draw-plas* "N") (= *sd-draw-plas* "NO")) nil T))
-  (if draw-plaster (progn (setq temp (getreal (strcat "\n[12] 粉刷線厚度 <" (rtos *sd-plas-thk* 2 1) ">: "))) (if temp (setq *sd-plas-thk* temp)) (setq p-thk *sd-plas-thk*)) (setq p-thk 0.0))
+  (if draw-plaster (progn (setq temp (getreal (strcat (sd:t "\n[12] 粉刷線厚度 <" "\n[12] Plaster Thickness <") (rtos *sd-plas-thk* 2 1) ">: "))) (if temp (setq *sd-plas-thk* temp)) (setq p-thk *sd-plas-thk*)) (setq p-thk 0.0))
 
   (setq void-ranges '())
   (initget "Y N")
-  (setq void-ans (getkword (strcat "\n[13] 處理樓梯/天井範圍？(Y/N) <" *sd-void-ans* ">: ")))
+  (setq void-ans (getkword (strcat (sd:t "\n[13] 處理樓梯/天井範圍？(Y/N) <" "\n[13] Process Voids/Stairwells? (Y/N) <") *sd-void-ans* ">: ")))
   (if (null void-ans) (setq void-ans *sd-void-ans*))
   (setq *sd-void-ans* void-ans)
 
@@ -305,10 +315,10 @@
     (progn
       (setq keep-going T)
       (while keep-going
-        (setq ent1 (car (vl-catch-all-apply 'entsel (list "\n請選取天井「左側」邊界線 (Enter 結束): "))))
+        (setq ent1 (car (vl-catch-all-apply 'entsel (list (sd:t "\n請選取天井「左側」邊界線 (Enter 結束): " "\nSelect 'Left' boundary of void (Enter to finish): ")))))
         (if (null ent1) (setq keep-going nil)
           (progn
-            (setq ent2 (car (vl-catch-all-apply 'entsel (list "\n請選取天井「右側」邊界線 (Enter 結束): "))))
+            (setq ent2 (car (vl-catch-all-apply 'entsel (list (sd:t "\n請選取天井「右側」邊界線 (Enter 結束): " "\nSelect 'Right' boundary of void (Enter to finish): ")))))
             (if (null ent2) (setq keep-going nil)
               (progn
                 (setq bbox1 (sd:get-bbox ent1) bbox2 (sd:get-bbox ent2))
@@ -316,7 +326,7 @@
                   (progn
                     (setq pt-left (car (car bbox1)) pt-right (car (car bbox2)))
                     (setq void-ranges (cons (list (min pt-left pt-right) (max pt-left pt-right)) void-ranges))
-                    (princ (strcat " → 已記錄！共 " (itoa (length void-ranges)) " 組"))
+                    (princ (strcat (sd:t " → 已記錄！共 " " → Recorded! Total ") (itoa (length void-ranges)) (sd:t " 組" " groups")))
                   )
                 )
               )
@@ -346,14 +356,12 @@
       (setq narrow-rays (cons (vlax-ename->vla-object (entlast)) narrow-rays))
     )
     
-    ;; ★ V89 關鍵：擴大搜索框到 ±1500cm，保證長窗戶的牆線被載入記憶體
     (setq box-pt1 (list (- (car pt1) 100) (- sec-y 1500.0)) box-pt2 (list (+ (car pt2) 100) (+ sec-y 1500.0)))
     (setq lay-filter-str (sd:join-layers (append lay-wall-list lay-balc-list lay-door-list)))
     (setq search-ss (ssget "_C" box-pt1 box-pt2 (list (cons 0 "LINE,*POLYLINE,INSERT,ARC") (cons 8 lay-filter-str))))
     
     (setq door-intervals '() door-y-bounds '() wall-x-list '() balc-x-list '())
     
-    ;; Pass A: 找門窗，並記錄其 Y 軸極限 (Top & Bottom)
     (setq i 0)
     (if search-ss
       (while (< i (sslength search-ss))
@@ -365,7 +373,6 @@
               (if bbox 
                 (progn
                   (setq door-intervals (cons (list (- (car (car bbox)) 5.0) (+ (car (cadr bbox)) 5.0)) door-intervals))
-                  ;; 記錄門窗的最上緣與最下緣
                   (setq door-y-bounds (cons (list (cadr (car bbox)) (cadr (cadr bbox))) door-y-bounds))
                 )
               )
@@ -376,11 +383,9 @@
       )
     )
     
-    ;; ★ V89 關鍵：根據門窗極限，動態生成狙擊射線 ★
     (setq wide-rays '())
     (foreach yb door-y-bounds
       (setq ymin (car yb) ymax (cadr yb))
-      ;; 在邊緣內外 ±5cm 處開槍，精準擊中連接的實體牆
       (foreach dy '(-5.0 5.0)
         (entmake (list '(0 . "LINE") (cons 10 (list (car pt1) (+ ymin dy) 0)) (cons 11 (list (car pt2) (+ ymin dy) 0))))
         (setq wide-rays (cons (vlax-ename->vla-object (entlast)) wide-rays))
@@ -389,7 +394,6 @@
       )
     )
     
-    ;; Pass B: 實體牆壁抓取
     (setq i 0)
     (if search-ss
       (while (< i (sslength search-ss))
@@ -440,7 +444,7 @@
     (setq bp (mapcar '(lambda (p) (append p (list 'PARAPET))) (sd:pair-walls (sd:remove-duplicates-tol balc-x-list 1.0) parapet-t)))
     (setq current-floor-walls (sd:merge-walls (append wp bp)))
     
-    (princ (strcat "\n -> 樓層 " (itoa (1+ f)) ": 偵測到 " (itoa (length raw-wall-x)) " 個牆點，配對出 " (itoa (length current-floor-walls)) " 道牆體。"))
+    (princ (strcat (sd:t "\n -> 樓層 " "\n -> Floor ") (itoa (1+ f)) (sd:t ": 偵測到 " ": Detected ") (itoa (length raw-wall-x)) (sd:t " 個牆點，配對出 " " wall pts, paired into ") (itoa (length current-floor-walls)) (sd:t " 道牆體。" " walls.")))
     (setq floor-walls-list (append floor-walls-list (list current-floor-walls)))
     (setq floor-doors-list (append floor-doors-list (list door-intervals)))
     (setq f (1+ f))
@@ -620,9 +624,9 @@
 
   (vl-catch-all-apply 'setvar (list "CLAYER" old-clayer)) 
   (vla-EndUndoMark doc) 
-  (princ "\n=== 繪製完成！ V89 (自適應邊界狙擊雷達版) ===") 
+  (princ (sd:t "\n=== 繪製完成！ V90 (國際開源雙語版) ===" "\n=== Drafting Complete! V90 (International Edition) ===")) 
   (princ)
 )
 
-(princ "\nSectionDraft V89 載入完成。") 
+(princ (sd:t "\nSectionDraft V90 載入完成。" "\nSectionDraft V90 loaded successfully.")) 
 (princ)
