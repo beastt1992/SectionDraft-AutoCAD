@@ -97,6 +97,7 @@ Type `SECDRAFT` and follow the prompts. The tool features **Global Memory**, so 
 
 | Feature | Details |
 |------|---------|
+| **Auto-L10N (Bilingual)** | Automatically detects your AutoCAD `SYSCODEPAGE`. Displays English globally and Traditional/Simplified Chinese for CJK users. No mojibake! |
 | **Global Memory** | Remembers selected layers, floor heights, sorting direction, and plaster settings across your AutoCAD session. |
 | **Plaster Lines** | Automatically offsets 2cm (customizable) around slabs and walls, perfectly joining at corners. |
 | **Voids / Stairs** | Allows manual selection of void boundaries to prevent slabs from passing through stairwells or elevator shafts. |
@@ -128,10 +129,10 @@ Make sure the floor plans are aligned consistently, and the cut lines correctly 
 
 | Version | Notes |
 |---------|-------|
+| v90 | **Auto-L10N Engine**: Added automatic bilingual support (EN/ZH) based on system codepage. |
 | v89 | **Adaptive Boundary Radar**: Perfected capture of connecting walls for extra-long windows/openings. |
 | v88 | **Precision Wall Merge**: Tightened merge gaps to prevent door frames from blending into RC walls. |
 | v84 | **Roof Logic Refinement**: Separated roof rendering logic for perfect parapet generation. |
-| v83 | **Touch-to-Trigger**: Openings are only cut if physically intersected by the main ray. |
 
 ---
 
