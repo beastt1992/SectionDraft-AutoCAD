@@ -16,7 +16,7 @@ Drawing architectural vertical sections in AutoCAD is a tedious, repetitive, and
 - Offset slab thickness and floor heights
 - Manually trim wall intersections
 - Figure out where the roof shrinks back (setbacks)
-- Draw 2cm plaster lines (粉刷線) everywhere
+- Draw 2cm plaster lines everywhere
 - **Plan changed? Start all over again.**
 
 The old workflow: Drawing endless `XLINE`s, trimming for hours, and constantly cross-referencing the floor plan to see if a wall is solid, if a door has a sill, or if it's an exposed balcony.
@@ -34,7 +34,7 @@ The old workflow: Drawing endless `XLINE`s, trimming for hours, and constantly c
   - Identifies Openings/Doors (and dynamically catches their sills)
 - **Automated Output:**
   - Generates Slabs & Walls
-  - Automatically draws 2cm Plaster Lines (粉刷線) perfectly wrapped
+  - Automatically draws 2cm Plaster Lines perfectly wrapped
   - Automatically detects Roof Setbacks & Parapets
 
 ---
